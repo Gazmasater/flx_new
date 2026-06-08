@@ -407,3 +407,43 @@ h3 {
     flex-direction: column;
   }
 }
+
+.legal-links {
+  display: grid;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.legal-links a {
+  display: block;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 16px 18px;
+  background: rgba(255,255,255,0.04);
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.legal-links a:hover {
+  border-color: rgba(71,229,189,0.55);
+}
+
+.legal-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #cbd5e1;
+  font-size: 14px;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.legal-check input {
+  margin-top: 3px;
+}
+
+.legal-check a {
+  color: #47e5bd;
+  text-decoration: none;
+}

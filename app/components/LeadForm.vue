@@ -114,6 +114,21 @@ const closeModal = () => {
               class="rounded-2xl bg-slate-950 border border-slate-700 px-5 py-4 min-h-28"
             ></textarea>
 
+            <label class="legal-check">
+              <input type="checkbox" required>
+              <span>Я принимаю <NuxtLink to="/offer" target="_blank">Публичную оферту</NuxtLink>.</span>
+            </label>
+
+            <label class="legal-check">
+              <input type="checkbox" required>
+              <span>Я ознакомлен с <NuxtLink to="/aml-kyc" target="_blank">AML/KYC Policy</NuxtLink> и <NuxtLink to="/risk-disclaimer" target="_blank">уведомлением о рисках</NuxtLink>.</span>
+            </label>
+
+            <label class="legal-check">
+              <input type="checkbox" required>
+              <span>Я согласен на <NuxtLink to="/personal-data-consent" target="_blank">обработку персональных данных</NuxtLink>.</span>
+            </label>
+
             <button
               type="submit"
               class="rounded-2xl bg-white text-black font-bold py-4 hover:opacity-90 transition"
