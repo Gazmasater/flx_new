@@ -1,38 +1,71 @@
 <script setup lang="ts">
 const paymentLink = "/qr.png";
-const telegramUser = "ТВОЙ_НИК";
-
 const isOpen = ref(false);
 const step = ref(1);
 
 const form = reactive({
+  lastName: "",
   name: "",
+  patronymic: "",
   contact: "",
   amount: "",
   comment: "",
 });
 
+const agreements = reactive({
+  offer: false,
+  amlKyc: false,
+  personalData: false,
+  riskDisclaimer: false,
+});
+
+const agreementText = {
+  offer: "Я принимаю условия Публичной оферты",
+  amlKyc: "Я ознакомлен с AML/KYC Policy",
+  personalData: "Я согласен на обработку персональных данных",
+  riskDisclaimer: "Я ознакомлен с уведомлением о рисках",
+};
+
+const allAgreementsAccepted = computed(() => {
+  return agreements.offer && agreements.amlKyc && agreements.personalData && agreements.riskDisclaimer;
+});
+
 const paymentId = ref("");
+const isSaving = ref(false);
+const saveError = ref("");
 
 const makePaymentId = () => {
   return "PAY-" + Date.now().toString().slice(-6);
 };
 
-const submit = () => {
+const submit = async () => {
+  saveError.value = "";
+  isSaving.value = true;
   paymentId.value = makePaymentId();
 
-  const text = encodeURIComponent(
-    "Новая заявка\n\n" +
-      "ID оплаты: " + paymentId.value + "\n" +
-      "Имя: " + form.name + "\n" +
-      "Контакт: " + form.contact + "\n" +
-      "Сумма: " + form.amount + "\n" +
-      "Комментарий: " + (form.comment || "-")
-  );
+  try {
+    await $fetch("/api/leads", {
+      method: "POST",
+      body: {
+        paymentId: paymentId.value,
+        lastName: form.lastName,
+        name: form.name,
+        patronymic: form.patronymic,
+        contact: form.contact,
+        amount: form.amount,
+        comment: form.comment,
+        agreements: { ...agreements },
+        agreementText,
+        documentsVersion: "2026-06-09",
+      },
+    });
 
-  window.open("https://t.me/" + telegramUser + "?text=" + text, "_blank");
-
-  step.value = 2;
+    step.value = 2;
+  } catch (error) {
+    saveError.value = "Не удалось сохранить заявку. Попробуйте ещё раз.";
+  } finally {
+    isSaving.value = false;
+  }
 };
 
 const closeModal = () => {
@@ -42,132 +75,96 @@ const closeModal = () => {
 </script>
 
 <template>
-  <section id="payment" class="py-20 border-t border-slate-800">
-    <div class="mx-auto max-w-4xl px-4 text-center">
-      <h2 class="text-4xl font-bold mb-4">
-        Оплата согласованной заявки
-      </h2>
-
-      <p class="text-slate-300 mb-10">
+  <section id="payment" class="payment-section">
+    <div class="payment-card">
+      <p class="eyebrow">Оплата заявки</p>
+      <h2>Оплата согласованной заявки</h2>
+      <p>
         Используйте форму ниже для оформления платежа по ранее согласованным условиям.
+        После заполнения будет сформирован ID оплаты.
       </p>
 
-      <button
-        type="button"
-        class="rounded-2xl bg-white text-black font-bold px-10 py-4 hover:opacity-90 transition"
-        @click="isOpen = true"
-      >
+      <button type="button" class="primary-button payment-button" @click="isOpen = true">
         Оплатить
       </button>
     </div>
 
-    <div
-      v-if="isOpen"
-      class="fixed inset-0 z-50 bg-black/70 flex items-center justify-center px-4"
-    >
-      <div class="w-full max-w-xl rounded-3xl bg-slate-900 border border-slate-700 p-6 relative">
-        <button
-          type="button"
-          class="absolute right-5 top-5 text-slate-400 hover:text-white"
-          @click="closeModal"
-        >
+    <div v-if="isOpen" class="modal-backdrop">
+      <div class="modal-card" role="dialog" aria-modal="true">
+        <button type="button" class="modal-close" aria-label="Закрыть" @click="closeModal">
           ✕
         </button>
 
         <div v-if="step === 1">
-          <h3 class="text-2xl font-bold mb-3">
-            Данные для оформления платежа
-          </h3>
-
-          <p class="text-slate-400 mb-6">
+          <p class="eyebrow">Шаг 1</p>
+          <h3>Данные для оформления платежа</h3>
+          <p class="modal-note">
             Заполните данные. После продолжения будет сформирован ID оплаты и инструкция.
           </p>
 
-          <form class="grid gap-4" @submit.prevent="submit">
-            <input
-              v-model="form.name"
-              required
-              type="text"
-              placeholder="Ваше имя"
-              class="rounded-2xl bg-slate-950 border border-slate-700 px-5 py-4"
-            >
+          <form class="lead-form" @submit.prevent="submit">
+            <div class="form-row fio-row">
+              <input v-model="form.lastName" required type="text" placeholder="Фамилия">
+              <input v-model="form.name" required type="text" placeholder="Имя">
+              <input v-model="form.patronymic" required type="text" placeholder="Отчество">
+            </div>
+            <input v-model="form.contact" required type="text" placeholder="Telegram или телефон">
+            <input v-model="form.amount" required type="text" placeholder="Сумма">
+            <textarea v-model="form.comment" placeholder="Комментарий"></textarea>
 
-            <input
-              v-model="form.contact"
-              required
-              type="text"
-              placeholder="Telegram или телефон"
-              class="rounded-2xl bg-slate-950 border border-slate-700 px-5 py-4"
-            >
+            <div class="agreements-box">
+              <label class="legal-check">
+                <input v-model="agreements.offer" type="checkbox" required>
+                <span>Я принимаю условия <NuxtLink to="/offer" target="_blank">Публичной оферты</NuxtLink>.</span>
+              </label>
 
-            <input
-              v-model="form.amount"
-              required
-              type="text"
-              placeholder="Сумма"
-              class="rounded-2xl bg-slate-950 border border-slate-700 px-5 py-4"
-            >
+              <label class="legal-check">
+                <input v-model="agreements.amlKyc" type="checkbox" required>
+                <span>Я ознакомлен с <NuxtLink to="/aml-kyc" target="_blank">AML/KYC Policy</NuxtLink>.</span>
+              </label>
 
-            <textarea
-              v-model="form.comment"
-              placeholder="Комментарий"
-              class="rounded-2xl bg-slate-950 border border-slate-700 px-5 py-4 min-h-28"
-            ></textarea>
+              <label class="legal-check">
+                <input v-model="agreements.personalData" type="checkbox" required>
+                <span>Я согласен на <NuxtLink to="/personal-data-consent" target="_blank">обработку персональных данных</NuxtLink>.</span>
+              </label>
 
-            <label class="legal-check">
-              <input type="checkbox" required>
-              <span>Я принимаю <NuxtLink to="/offer" target="_blank">Публичную оферту</NuxtLink>.</span>
-            </label>
+              <label class="legal-check">
+                <input v-model="agreements.riskDisclaimer" type="checkbox" required>
+                <span>Я ознакомлен с <NuxtLink to="/risk-disclaimer" target="_blank">уведомлением о рисках</NuxtLink>.</span>
+              </label>
+            </div>
 
-            <label class="legal-check">
-              <input type="checkbox" required>
-              <span>Я ознакомлен с <NuxtLink to="/aml-kyc" target="_blank">AML/KYC Policy</NuxtLink> и <NuxtLink to="/risk-disclaimer" target="_blank">уведомлением о рисках</NuxtLink>.</span>
-            </label>
+            <p v-if="saveError" class="form-error">
+              {{ saveError }}
+            </p>
 
-            <label class="legal-check">
-              <input type="checkbox" required>
-              <span>Я согласен на <NuxtLink to="/personal-data-consent" target="_blank">обработку персональных данных</NuxtLink>.</span>
-            </label>
-
-            <button
-              type="submit"
-              class="rounded-2xl bg-white text-black font-bold py-4 hover:opacity-90 transition"
-            >
-              Продолжить
+            <button type="submit" class="primary-button form-submit" :disabled="isSaving || !allAgreementsAccepted">
+              {{ isSaving ? "Сохраняем..." : "Продолжить" }}
             </button>
           </form>
         </div>
 
         <div v-else>
-          <h3 class="text-2xl font-bold mb-3">
-            Инструкция по оплате
-          </h3>
+          <p class="eyebrow">Шаг 2</p>
+          <h3>Инструкция по оплате</h3>
 
-          <div class="rounded-2xl bg-slate-950 border border-slate-700 p-5 mb-6">
-            <p class="text-slate-400 mb-1">
-              ID оплаты
-            </p>
-            <p class="text-2xl font-bold">
-              {{ paymentId }}
-            </p>
+          <div class="payment-id-card">
+            <span>ID оплаты</span>
+            <strong>{{ paymentId }}</strong>
           </div>
 
-          <ol class="grid gap-3 text-slate-300 mb-6">
-            <li>1. Перейдите к оплате по QR.</li>
-            <li>2. Выполните перевод на указанную сумму.</li>
-            <li>3. Сохраните чек после оплаты.</li>
-            <li>4. При необходимости отправьте чек менеджеру.</li>
+          <ol class="instruction-list">
+            <li>Перейдите к оплате по QR.</li>
+            <li>Выполните перевод на указанную сумму.</li>
+            <li>Сохраните чек после оплаты.</li>
+            <li>При необходимости отправьте чек менеджеру.</li>
           </ol>
 
-          <a
-            :href="paymentLink"
-            target="_blank"
-            class="block rounded-2xl bg-emerald-400 text-black font-bold py-4 text-center hover:opacity-90 transition"
-          >
+          <a :href="paymentLink" target="_blank" class="primary-button form-submit">
             Оплатить по QR
           </a>
 
-          <p class="text-sm text-slate-500 mt-5">
+          <p class="modal-note small-note">
             Условия платежа должны соответствовать ранее согласованной заявке.
           </p>
         </div>
